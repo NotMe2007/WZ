@@ -156,11 +156,13 @@ local function ToSell()
     for _, invItem in ipairs(itemNameTable) do
         for _, info in ipairs(itemTypeTable) do
             if tostring(info.Name) == tostring(invItem) then
-                local rarity = info.Rarity
-                if rarity == 1 and getgenv().Settings.AutoSell.Common then table.insert(itemToSell, invItem) end
-                if rarity == 2 and getgenv().Settings.AutoSell.Uncommon then table.insert(itemToSell, invItem) end
-                if rarity == 3 and getgenv().Settings.AutoSell.Rare then table.insert(itemToSell, invItem) end
-                if rarity == 4 and getgenv().Settings.AutoSell.Epic then table.insert(itemToSell, invItem) end
+                local rarity = (info and info.Rarity)
+                if rarity then
+                    if rarity == 1 and getgenv().Settings.AutoSell.Common then table.insert(itemToSell, invItem) end
+                    if rarity == 2 and getgenv().Settings.AutoSell.Uncommon then table.insert(itemToSell, invItem) end
+                    if rarity == 3 and getgenv().Settings.AutoSell.Rare then table.insert(itemToSell, invItem) end
+                    if rarity == 4 and getgenv().Settings.AutoSell.Epic then table.insert(itemToSell, invItem) end
+                end
             end
         end
     end

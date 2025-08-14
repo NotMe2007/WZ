@@ -231,18 +231,20 @@ do
 end
 
 -- UI loader and stubs
+-- UI loader replaced with a stub that aborts when the UI is invoked.
+-- When consumers call `library:CreateWindow(...)` it will kick the player and stop execution.
 local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or load
-local library
-do
-    local ok, res = pcall(function()
-        local src = game:HttpGet('https://raw.githubusercontent.com/LuckyToT/Roblox/main/UI/Wally%20UI%20III.lua')
-        if src and #src > 0 then
-            local fn = loadfunc(src)
-            if type(fn) == 'function' then return fn() end
-        end
-    end)
-    library = ok and res or nil
-end
+local library = {
+    CreateWindow = function(...)
+        pcall(function()
+            local plr = game and game.Players and game.Players.LocalPlayer
+            if plr and type(plr.Kick) == 'function' then
+                plr:Kick('Script was discontinued')
+            end
+        end)
+        error('Script was discontinued')
+    end,
+}
 
 -- Provide Enum and setclipboard safely
 local Enum = rawget(_G, 'Enum') or {}
@@ -262,15 +264,31 @@ end
 
 local GUIS, Setting, Credit, Update
 local UI
-if library then
-    UI = library:CreateWindow('World Zero Hub')
-    local Game = UI
-    local Other = UI
-    local Misc2 = UI
-    GUIS = UI:CreateFolder('Open Guis')
-    Setting = UI:CreateFolder('Settings')
-    Credit = UI:CreateFolder('Credit')
-    Update = UI:CreateFolder('Latest Updated')
+if library and type(library.CreateWindow) == 'function' then
+    local ok, u = pcall(function() return library:CreateWindow('World Zero Hub') end)
+    if ok and u then
+        UI = u
+        if type(UI.CreateFolder) == 'function' then
+            local ok1, g = pcall(function() return UI:CreateFolder('Open Guis') end)
+            local ok2, s = pcall(function() return UI:CreateFolder('Settings') end)
+            local ok3, c = pcall(function() return UI:CreateFolder('Credit') end)
+            local ok4, up = pcall(function() return UI:CreateFolder('Latest Updated') end)
+            GUIS = ok1 and g or ui_stub()
+            Setting = ok2 and s or ui_stub()
+            Credit = ok3 and c or ui_stub()
+            Update = ok4 and up or ui_stub()
+        else
+            GUIS = ui_stub()
+            Setting = ui_stub()
+            Credit = ui_stub()
+            Update = ui_stub()
+        end
+    else
+        GUIS = ui_stub()
+        Setting = ui_stub()
+        Credit = ui_stub()
+        Update = ui_stub()
+    end
 else
     GUIS = ui_stub()
     Setting = ui_stub()

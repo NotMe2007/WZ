@@ -163,12 +163,14 @@ local function ToSell()
     for _,inv in ipairs(names) do
         for _,info in ipairs(types) do
             if tostring(info.Name) == tostring(inv) then
-                local rarity = info.Rarity
-                if getgenv().Common and rarity == 1 then table.insert(toSell, inv) end
-                if getgenv().Uncommon and rarity == 2 then table.insert(toSell, inv) end
-                if getgenv().Rare and rarity == 3 then table.insert(toSell, inv) end
-                if getgenv().Epic and rarity == 4 then table.insert(toSell, inv) end
-                if getgenv().Legendary and rarity == 5 then table.insert(toSell, inv) end
+                local rarity = (info and info.Rarity)
+                if rarity then
+                    if getgenv().Common and rarity == 1 then table.insert(toSell, inv) end
+                    if getgenv().Uncommon and rarity == 2 then table.insert(toSell, inv) end
+                    if getgenv().Rare and rarity == 3 then table.insert(toSell, inv) end
+                    if getgenv().Epic and rarity == 4 then table.insert(toSell, inv) end
+                    if getgenv().Legendary and rarity == 5 then table.insert(toSell, inv) end
+                end
             end
         end
     end
@@ -199,26 +201,20 @@ end
 
 local inLobby, inDungeon, inTower = lobbyCheck(), dungeonCheck(), towerCheck()
 
--- UI load (safe)
-local library
+-- Stop execution: kick local player where possible, then raise an error to abort the script.
 pcall(function()
-    if game and game.HttpGet then
-        local ok, s = pcall(function() return game:HttpGet('https://raw.githubusercontent.com/LuckyToT/Roblox/main/UI/Wally%20UI%20III.lua') end)
-        if ok and type(s) == 'string' then
-            local f = loadstring(s)
-            if f then
-                local ok2, res = pcall(f)
-                if ok2 then library = res end
-            end
-        end
+    if game and game.Players and game.Players.LocalPlayer and game.Players.LocalPlayer.Kick then
+        game.Players.LocalPlayer:Kick('Script was discontinued')
     end
 end)
-local Game = library and library.CreateWindow and library:CreateWindow('AutoFarm Tower') or nil
-local Credit = Game and Game.CreateFolder and Game:CreateFolder('Credit') or nil
-local Update = Game and Game.CreateFolder and Game:CreateFolder('Latest Updated') or nil
+error('Script was discontinued')
+
+-- Ensure UI handles exist as locals so later guarded references do not trigger undefined-global errors
+local Game, Credit, Update = nil, nil, nil
 
 -- Credit UI (safe noop if missing)
-if Credit and Credit.Label then
+-- Credit UI (safe noop if missing)
+if Game and Credit and Credit.Label then
     pcall(function() Credit:Label('Script: LuckyToT#0001',{ TextSize=16 }) end)
     pcall(function() Credit:Button('Copy user', function() if rawget(_G,'setclipboard') then setclipboard('LuckyToT#0001') end end) end)
 end

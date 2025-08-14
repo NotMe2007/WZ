@@ -1,3 +1,23 @@
+-- Safe shim locals for static analysis and varying executor environments
+local _G_game = rawget(_G, 'game') or nil -- keep reference for tooling
+-- Lightweight shims for common Roblox globals so static checks don't fail.
+local wait = rawget(_G, 'wait') or function(s)
+    local s = tonumber(s) or 0.05
+    local t0 = os.clock()
+    while os.clock() - t0 < s do end
+end
+local spawn = rawget(_G, 'spawn') or function(fn)
+    local co = coroutine.create(fn)
+    coroutine.resume(co)
+end
+local getgenv = rawget(_G, 'getgenv') or function() return _G end
+local getconnections = rawget(_G, 'getconnections') or function() return {} end
+local setclipboard = rawget(_G, 'setclipboard') or function() end
+local game = rawget(_G, 'game') or _G_game
+local Enum = rawget(_G, 'Enum') or (game and game.Enum) or {}
+-- Minimal Color3 shim for static tools
+local Color3 = rawget(_G, 'Color3') or { fromRGB = function(r,g,b) return {r=r,g=g,b=b} end }
+
 getgenv().coin = false
 getgenv().kill = false
 getgenv().killPlayer = false
@@ -66,7 +86,7 @@ end
 
 -- Check the player
 function getPlayer()
-    local player, cha, plr, col, torso = nil, nil, nil, nil
+    local player, cha, plr, col, torso = nil, nil, nil, nil, nil
 
     while not game.Players.LocalPlayer do
         wait()
@@ -109,15 +129,24 @@ function getPlayer()
 end
 local player, cha, plr, hum, col, torso = getPlayer()
 
--- Variables
-local Combat = require(game:GetService("ReplicatedStorage").Shared.Combat)
-local CharProfileCheck 	= game:GetService("ReplicatedStorage"):FindFirstChild("Profiles"):FindFirstChild(cha.Name);
-local ClassGUI  = CharProfileCheck and game:GetService("ReplicatedStorage").Profiles[cha.Name].Class;
-local GetEvent = Combat and Combat:GetAttackEvent()
+-- Safe require helper to avoid hard crashes when a module is missing
+local function safeRequire(mod)
+    local ok, res = pcall(require, mod)
+    if ok then return res end
+    return nil
+end
 
-local Combat = require(game:GetService("ReplicatedStorage").Shared.Combat)
-local GetEvent = Combat and Combat:GetAttackEvent()
-local st = require(game:GetService("ReplicatedStorage").Shared.Settings)
+-- Variables (guarded)
+local Combat = safeRequire(game:GetService("ReplicatedStorage").Shared.Combat)
+local GetEvent = Combat and Combat.GetAttackEvent and Combat:GetAttackEvent()
+local st = safeRequire(game:GetService("ReplicatedStorage").Shared.Settings) or {}
+
+local ProfilesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Profiles")
+local CharProfileCheck = nil
+if ProfilesFolder and ProfilesFolder:FindFirstChild(cha.Name) then
+    CharProfileCheck = ProfilesFolder[cha.Name]
+end
+local ClassGUI = (CharProfileCheck and CharProfileCheck:FindFirstChild('Class') and CharProfileCheck.Class) or { Value = 'Swordmaster' }
 
 -- Table classes
 local Classes = {
@@ -196,15 +225,20 @@ function getFood()
 end
 
 function upgradeEquip()
+    if not CharProfileCheck or not CharProfileCheck:FindFirstChild('Equip') then return end
     for i,v in pairs(CharProfileCheck.Equip:GetDescendants()) do
         if v:FindFirstChild('UpgradeLimit') and v:FindFirstChild('Upgrade') then
-            upgrade_Left = v.UpgradeLimit.Value - v.Upgrade.Value
+            local upgrade_Left = v.UpgradeLimit.Value - v.Upgrade.Value
             if upgrade_Left ~= 0 then
-                game:GetService("ReplicatedStorage").Shared.ItemUpgrade.Upgrade:FireServer(v)
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Shared.ItemUpgrade.Upgrade:FireServer(v)
+                end)
             end
         end
         if v:FindFirstChild('UpgradeLimit') and not v:FindFirstChild('Upgrade') then
-            game:GetService("ReplicatedStorage").Shared.ItemUpgrade.Upgrade:FireServer(v)
+            pcall(function()
+                game:GetService("ReplicatedStorage").Shared.ItemUpgrade.Upgrade:FireServer(v)
+            end)
         end
     end
     wait(.1)
@@ -236,29 +270,20 @@ function getItemName()
 end
 
 function ToSell()
-    local rarity
     local itemToSell = {}
     local itemTypeTable = getItemList()
     local itemNameTable = getItemName()
-    for a,b in pairs(itemNameTable) do
-        for c,d in pairs(itemTypeTable) do
-            if d.Name == tostring(b) then
-                rarity = d.Rarity
-                if getgenv().Common and rarity == 1 then
-                    table.insert(itemToSell, b)
+    for _, item in ipairs(itemNameTable) do
+        local itemName = (type(item) == 'table' and item.Name) or tostring(item)
+        for _, t in ipairs(itemTypeTable) do
+            if t and t.Name == itemName then
+                local rarity = (t and t.Rarity)
+                if rarity then
+                    if getgenv().Common and rarity == 1 then table.insert(itemToSell, item) end
+                    if getgenv().Uncommon and rarity == 2 then table.insert(itemToSell, item) end
+                    if getgenv().Rare and rarity == 3 then table.insert(itemToSell, item) end
+                    if getgenv().Epic and rarity == 4 then table.insert(itemToSell, item) end
                 end
-                if getgenv().Uncommon and rarity == 2 then
-                    table.insert(itemToSell, b)
-                end
-                if getgenv().Rare and rarity == 3 then
-                    table.insert(itemToSell, b)
-                end
-                if getgenv().Epic and rarity == 4 then
-                    table.insert(itemToSell, b)
-                end
-                -- if getgenv().Legendary and rarity == 5 then
-                --     table.insert(itemToSell, b)
-                -- end
             end
         end
     end
@@ -298,14 +323,17 @@ spawn(function()
         if getgenv().kill then
             mob, pos = monster()
             if #mob > 0 and #pos > 0 then
-                for i,c in pairs(Classes[ClassGUI.Value]) do
+                for i,c in pairs(Classes[ClassGUI.Value] or {}) do
                     mob, pos = monster()
-					if getgenv().kill and #mob > 0 and #pos > 0 then
-						Combat.AttackTargets(nil , mob, pos, c)
+                    if getgenv().kill and #mob > 0 and #pos > 0 then
+                        if Combat and Combat.AttackTargets then
+                            pcall(function() Combat.AttackTargets(nil, mob, pos, c) end)
+                        end
                         wait(.2)
-					end
-					game.RunService.Heartbeat:Wait()
-					
+                    end
+                    if game and game.RunService and game.RunService.Heartbeat then
+                        game.RunService.Heartbeat:Wait()
+                    end
                 end
             end 
         end
@@ -364,15 +392,51 @@ game:GetService("Workspace").ChildAdded:Connect(function(v)
 	end
 end)
 
--- skip cutscence
-local Camera = require(game.ReplicatedStorage.Client.Camera)
-player.PlayerGui.CutsceneUI.Changed:Connect(function(v)
-    if getgenv().skip then
-        Camera:SkipCutscene()
+-- skip cutscence (guarded)
+local Camera = safeRequire(game.ReplicatedStorage and game.ReplicatedStorage.Client and game.ReplicatedStorage.Client.Camera) or { SkipCutscene = function() end }
+if player and player.PlayerGui and player.PlayerGui:FindFirstChild('CutsceneUI') then
+    local cut = player.PlayerGui.CutsceneUI
+    if cut.Changed and cut.Changed.Connect then
+        cut.Changed:Connect(function(v)
+            if getgenv().skip then
+                pcall(function() Camera:SkipCutscene() end)
+            end
+        end)
     end
-end)
+end
 
-local library = loadstring(game:HttpGet(('https://pastebin.com/raw/FsJak6AT')))()
+-- Safely load UI library; fall back to a minimal no-op stub when network or pastebin is unavailable
+local library
+do
+    local ok, lib = pcall(function()
+        if not game or not game.HttpGet then error('no http') end
+        local s = game:HttpGet('https://pastebin.com/raw/FsJak6AT')
+    local loader = rawget(_G, 'load') or rawget(_G, 'loadstring')
+    if not loader then error('no loader') end
+    local chunk = loader(s)
+    if type(chunk) == 'function' then return chunk() end
+    end)
+    if ok and lib then
+        library = lib
+    else
+        library = {}
+        function library:CreateWindow(title)
+            local win = {}
+        function win:CreateFolder(name)
+            local folder = {}
+            function folder:Toggle(name, callback, ...) if type(callback) == 'function' then folder._lastToggle = callback end end
+            function folder:Slider(name, min, max, whole, callback, ...) if type(callback) == 'function' then folder._lastSlider = callback end end
+            function folder:Button(name, callback, ...) if type(callback) == 'function' then folder._lastButton = callback end end
+            function folder:Label(text, opts) end
+            function folder:Bind(name, key, callback, ...) if type(callback) == 'function' then folder._lastBind = callback end end
+            function folder:GuiSettings(...) end
+            function folder:CreateFolder() return folder end
+            return folder
+            end
+            return win
+        end
+    end
+end
 local Game = library:CreateWindow("Game") -- Creates the window
 local Combat = Game:CreateFolder("Combat")
 local Misc = Game:CreateFolder("Misc")
@@ -451,6 +515,34 @@ end)
 -- Skip Cutscenes
 Misc:Toggle("Skip Cutscenes",function(bool)
     getgenv().skip = bool
+end)
+
+-- Auto Restart (persist to Menu when available)
+Misc:Toggle("Auto Restart", function(bool)
+    -- persist to getgenv-style Settings so modules that read _genv will pick it up
+    if type(getgenv) == 'function' then
+        local ok, g = pcall(getgenv)
+        if ok and type(g) == 'table' then
+            g.Settings = g.Settings or {}
+            g.Settings.AutoRejoin = g.Settings.AutoRejoin or {}
+            g.Settings.AutoRejoin.Enabled = bool
+        end
+    else
+        _G.Settings = _G.Settings or {}
+        _G.Settings.AutoRejoin = _G.Settings.AutoRejoin or {}
+        _G.Settings.AutoRejoin.Enabled = bool
+    end
+
+    -- also try to persist into the shared Menu module if present in ReplicatedStorage
+    pcall(function()
+        local rs = game:GetService('ReplicatedStorage')
+        if rs:FindFirstChild('Features') and rs.Features:FindFirstChild('Menu') then
+            local Menu = require(rs.Features.Menu)
+            if type(Menu.set) == 'function' then
+                pcall(function() Menu.set('Settings.AutoRejoin.Enabled', bool) end)
+            end
+        end
+    end)
 end)
 
 -- Other

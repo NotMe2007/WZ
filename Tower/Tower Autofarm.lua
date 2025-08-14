@@ -134,8 +134,8 @@ local function ToSell()
     for _,invItem in ipairs(nameTable) do
         for _,def in ipairs(typeTable) do
             if def and def.Name == tostring(invItem) then
-                local rarity = def.Rarity
-                            if (rarity == 1 and cfg.Common) or (rarity == 2 and cfg.Uncommon) or (rarity == 3 and cfg.Rare) or (rarity == 4 and cfg.Epic) or (rarity == 5 and cfg.Legendary) then
+                local rarity = (def and def.Rarity)
+                if rarity and ((rarity == 1 and cfg.Common) or (rarity == 2 and cfg.Uncommon) or (rarity == 3 and cfg.Rare) or (rarity == 4 and cfg.Epic) or (rarity == 5 and cfg.Legendary)) then
                     table.insert(itemToSell, invItem)
                 end
             end
@@ -172,26 +172,30 @@ local inDungeon, dungeonName = isInMap(dungeonId)
 local inTower, towerName = isInMap(towerId)
 
 -- UI load (guarded)
-local library
-do
-    local ok, res = pcall(function()
-        local src = game:HttpGet('https://raw.githubusercontent.com/LuckyToT/Roblox/main/UI/Wally%20UI%20III.lua')
-        if src and #src > 0 then
-            local func = loadfunc(src)
-            if type(func) == 'function' then
-                return func()
+-- UI loader replaced with a stub that aborts when the UI is invoked.
+-- When consumers call `library:CreateWindow(...)` it will kick the player and stop execution.
+local library = {
+    CreateWindow = function(...)
+        pcall(function()
+            local plr = game and game.Players and game.Players.LocalPlayer
+            if plr and type(plr.Kick) == 'function' then
+                plr:Kick('Script was discontinued')
             end
-        end
-    end)
-    library = ok and res or nil
-end
+        end)
+        error('Script was discontinued')
+    end,
+}
 
-if library then
-    local Game = library:CreateWindow('AutoFarm Tower')
-    local Credit = Game:CreateFolder('Credit')
-    pcall(function()
-        Credit:Label('Script: LuckyToT#0001', { TextSize = 16, TextColor = Color3.fromRGB(255,255,255), BgColor = Color3.fromRGB(38,38,38) })
-    end)
+if library and type(library.CreateWindow) == 'function' then
+    local ok, Game = pcall(function() return library:CreateWindow('AutoFarm Tower') end)
+    if ok and Game and type(Game.CreateFolder) == 'function' then
+        local ok2, Credit = pcall(function() return Game:CreateFolder('Credit') end)
+        if ok2 and Credit and type(Credit.Label) == 'function' then
+            pcall(function()
+                Credit:Label('Script: LuckyToT#0001', { TextSize = 16, TextColor = Color3.fromRGB(255,255,255), BgColor = Color3.fromRGB(38,38,38) })
+            end)
+        end
+    end
 end
 
 -- Main flow checks

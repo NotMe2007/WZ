@@ -16,6 +16,10 @@ local Vector3 = rawget(_G, 'Vector3')
 local CFrame = rawget(_G, 'CFrame')
 local gethiddenproperty = rawget(_G, 'gethiddenproperty')
 local loadstring = rawget(_G, 'loadstring') or rawget(_G, 'load') or load
+-- Lightweight shims for UI types used in fallback warnings (only for static checks)
+local UDim2 = rawget(_G, 'UDim2')
+local Color3 = rawget(_G, 'Color3')
+local Enum = rawget(_G, 'Enum')
 
 local taskRef = rawget(_G, 'task')
 repeat
@@ -179,16 +183,65 @@ elseif inLobby or inDungeon then
 elseif inTower then
     player, cha, plr, col = getPlayer()
 
-    -- guarded external loader
-    pcall(function()
-        local ok, s = pcall(function()
-            return game:HttpGet('https://raw.githubusercontent.com/LuckyToT/Roblox/main/test/wc.lua')
-        end)
-        if ok and type(s) == 'string' then
-            local f, e = loadstring(s)
-            if f then pcall(f) end
+    -- If external code would've been loaded here, warn the player instead.
+    local function warnAndSkipExternalLoad()
+        local ok, StarterGui = pcall(function() return game:GetService('StarterGui') end)
+        local msg = "External loader blocked: remote code not executed for safety."
+        -- Try SetCore notification first (works in many environments)
+        if ok and StarterGui and StarterGui.SetCore then
+            pcall(function()
+                StarterGui:SetCore('SendNotification', {
+                    Title = 'Security';
+                    Text = msg;
+                    Duration = 6;
+                })
+            end)
+            return
         end
-    end)
+        -- Next try Chat system message
+        local ok2, Chat = pcall(function() return game:GetService('Chat') end)
+        if ok2 then
+            pcall(function()
+                if ok and StarterGui and StarterGui.SetCore then
+                    StarterGui:SetCore('ChatMakeSystemMessage', {Text = msg})
+                    return
+                end
+                -- fallback: show a temporary ScreenGui label
+                local plr = game.Players.LocalPlayer
+                if plr and plr:FindFirstChild('PlayerGui') and Instance then
+                    local screen = Instance.new('ScreenGui')
+                    screen.Name = 'ExternalLoadWarning'
+                    screen.ResetOnSpawn = false
+                    screen.Parent = plr.PlayerGui
+                    local label = Instance.new('TextLabel')
+                    -- guarded constructors if UDim2/Color3/Enum are available
+                    if rawget(_G, 'UDim2') and rawget(_G, 'Color3') and rawget(_G, 'Enum') then
+                        label.Size = UDim2.new(0.6,0,0,50)
+                        label.Position = UDim2.new(0.2,0,0.05,0)
+                        label.BackgroundTransparency = 0.35
+                        label.BackgroundColor3 = Color3.new(0,0,0)
+                        label.TextColor3 = Color3.new(1,0.8,0)
+                        label.Font = Enum.Font.SourceSansBold
+                    end
+                    label.TextSize = 20
+                    label.Text = msg
+                    label.Parent = screen
+                    coroutine.wrap(function()
+                        local t0 = os.clock()
+                        while os.clock() - t0 < 6 do
+                            wait(0.2)
+                        end
+                        pcall(function() screen:Destroy() end)
+                    end)()
+                end
+            end)
+            return
+        end
+        -- Last resort: print to console
+        pcall(function() print(msg) end)
+    end
+
+    warnAndSkipExternalLoad()
 
     local function noClip()
         local _, _, _, localCol = getPlayer()

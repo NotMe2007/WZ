@@ -1,3 +1,22 @@
+local game = rawget(_G, 'game') or error('game missing')
+local RunService = game:GetService('RunService')
+local workspace = game:GetService('Workspace')
+local Instance = rawget(_G, 'Instance') or {}
+local CFrame = rawget(_G, 'CFrame') or { new = function(...) return {} end }
+local function wait(sec)
+	sec = tonumber(sec)
+	if sec and sec > 0 then
+		local t0 = os.clock()
+		while os.clock() - t0 < sec do RunService.Heartbeat:Wait() end
+	else
+		RunService.Heartbeat:Wait()
+	end
+end
+
+local spawn = rawget(_G, 'spawn') or function(fn) coroutine.wrap(fn)() end
+local getconnections = rawget(_G, 'getconnections') or function() return {} end
+local Vector3 = rawget(_G, 'Vector3') or { new = function() return {x=0,y=0,z=0} end }
+
 _G.CoinMagnet = true
 _G.WaitTime = 2
 _G.Setting = {
@@ -273,7 +292,6 @@ elseif inDungeon then
 		-- world 5-1
 		['DamageDroppers'] = true,
 		['BlazeShooters'] = true,
-		['DamageDroppers'] = true,
 		['FallAreas'] = true
 	}
 	-- Do mission

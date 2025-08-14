@@ -1,3 +1,5 @@
+local game = rawget(_G, 'game') or { PlaceId = 0 }
+
 local dungeonId = {
 	-- world 1
 	[2978696440] = 'Crabby Crusade (1-1)', 
@@ -24,11 +26,13 @@ local dungeonId = {
 	[6847034886] = 'Mezuvia Skylands (7-1)'
 }
 
+
 local towerId = {
 	[5703353651] = 'Prison Tower',
 	[6075085184] = 'Atlantis Tower',
     [7071564842] = 'Mezuvian Tower'
 }
+
 
 local lobbyId = {
 	[2727067538] = 'Main menu',
@@ -38,40 +42,53 @@ local lobbyId = {
 	[4646472003] = 'World 4',
 	[5703355191] = 'World 5',
 	[6075083204] = 'World 6',
-	[6847035264] = 'World 7'
+	[6847035264] = 'World 7',
 }
 
-function lobbyCheck()
-    for i,v in pairs(lobbyId) do
-        if game.PlaceId == i then
-			warn("Lobby:", v)
-           return true
-        end
-    end
-    return false
-end
-
-function dungeonCheck()
-    for i,v in pairs(dungeonId) do
-        if game.PlaceId == i then
-			warn("Dungeon:", v)
-           return true
-        end
-    end
-    return false
-end 
-
-function towerCheck()
-	for i,v in pairs(towerId) do
-		if game.PlaceId == i then
-			warn("Tower:", v)
-            return true
-        end
+local function findInMap(map, placeId)
+	for id, name in pairs(map) do
+		if placeId == id then return true, name end
 	end
-    return false
+	return false, nil
 end
 
-warn('Checking')
-local inLobby = lobbyCheck()
-local inDungeon = dungeonCheck()
-local inTower = towerCheck()
+local function isLobby(placeId)
+	return findInMap(lobbyId, placeId)
+end
+
+local function isDungeon(placeId)
+	return findInMap(dungeonId, placeId)
+end
+
+local function isTower(placeId)
+	return findInMap(towerId, placeId)
+end
+
+-- convenient detection using current game.PlaceId
+local function detectCurrent()
+	local pid = game and game.PlaceId or 0
+	local inLobby, lobbyName = isLobby(pid)
+	if inLobby then return 'lobby', lobbyName end
+	local inDungeon, dungeonName = isDungeon(pid)
+	if inDungeon then return 'dungeon', dungeonName end
+	local inTower, towerName = isTower(pid)
+	if inTower then return 'tower', towerName end
+	return 'unknown', nil
+end
+
+local kind, name = detectCurrent()
+
+local M = {
+	isLobby = isLobby,
+	isDungeon = isDungeon,
+	isTower = isTower,
+	findInMap = findInMap,
+	detectCurrent = detectCurrent,
+	currentKind = kind,
+	currentName = name,
+	dungeonId = dungeonId,
+	towerId = towerId,
+	lobbyId = lobbyId,
+}
+
+return M
