@@ -233,7 +233,11 @@ end
 -- UI loader and stubs
 -- UI loader replaced with a stub that aborts when the UI is invoked.
 -- When consumers call `library:CreateWindow(...)` it will kick the player and stop execution.
-local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or load
+local function safeLoad(chunk)
+    pcall(function() warn('Dynamic load blocked for safety') end)
+    return function() end
+end
+local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or safeLoad
 local library = {
     CreateWindow = function(...)
         pcall(function()

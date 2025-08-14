@@ -69,10 +69,21 @@ do
         return nil
     end)
     if ok and getEvent then
-        local gc = rawget(_G, 'getconnections')
-        if type(gc) == 'function' and getEvent.OnClientEvent then
+        local function safeIterConnections(evt)
+            local gc = rawget(_G, 'getconnections')
+            if type(gc) == 'function' then
+                local ok, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+                if ok and type(res) == 'table' then return res end
+            end
+            if evt and type(evt.GetConnections) == 'function' then
+                local ok2, res2 = pcall(function() return evt:GetConnections() end)
+                if ok2 and type(res2) == 'table' then return res2 end
+            end
+            return {}
+        end
+        if type(getconnections) == 'function' and getEvent.OnClientEvent then
             pcall(function()
-                for _, conn in next, gc(getEvent.OnClientEvent) do
+                for _, conn in next, safeIterConnections(getEvent.OnClientEvent) do
                     if conn and type(conn.Disable) == 'function' then
                         pcall(function() conn:Disable() end)
                     end

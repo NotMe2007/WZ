@@ -11,7 +11,33 @@ _G.Setting = {
 	AutoSelectHighest = {
 		Enabled = true,
 	}
+
 }
+
+-- Safe runtime / static-analysis shim (keeps the file lint-clean outside Roblox)
+do
+	local ok = pcall(function() assert(game and wait) end)
+	if not ok then
+		local _game = {}
+		function _game:GetService(name) return _game end
+		function _game:IsLoaded() return true end
+		_game.Players = { LocalPlayer = { PlayerGui = {}, Character = { HumanoidRootPart = { CFrame = {} }, Collider = {} } } }
+		_game.Workspace = _game.Workspace or {}
+		_game.PlaceId = _game.PlaceId or 0
+		rawset(_G, 'game', _game)
+		rawset(_G, 'workspace', _game.Workspace)
+		rawset(_G, 'task', rawget(_G,'task') or {})
+		-- permissive wait/task.wait for linting; accepts optional seconds
+		task.wait = task.wait or function(sec) end
+		rawset(_G, 'wait', function(sec) if sec then task.wait(sec) else task.wait() end end)
+		rawset(_G, 'getconnections', getconnections or function() return {} end)
+		rawset(_G, 'Vector3', Vector3 or {})
+		rawset(_G, 'CFrame', CFrame or {})
+		rawset(_G, 'Instance', Instance or { new = function(...) return {} end })
+		rawset(_G, 'spawn', spawn or function(fn) coroutine.wrap(fn)() end)
+	end
+end
+
 -- Load
 repeat wait() until game:IsLoaded()
 
@@ -76,11 +102,28 @@ local Classes = {
 }
 
 -- Bypass
-if (GetEvent) then
-    for i,v in next, getconnections(GetEvent.OnClientEvent) do
-        v:Disable()
-    end
-end
+pcall(function()
+	if GetEvent and GetEvent.OnClientEvent then
+		local function safeIterConnections(evt)
+			local gc = rawget(_G, 'getconnections')
+			if type(gc) == 'function' then
+				local ok, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+				if ok and type(res) == 'table' then return res end
+			end
+			if evt and type(evt.GetConnections) == 'function' then
+				local ok2, res2 = pcall(function() return evt:GetConnections() end)
+				if ok2 and type(res2) == 'table' then return res2 end
+			end
+			return {}
+		end
+		local ok, conns = pcall(function() return safeIterConnections(GetEvent.OnClientEvent) end)
+		if ok and conns then
+			for _, v in pairs(conns) do
+				if v and v.Disable then pcall(function() v:Disable() end) end
+			end
+		end
+	end
+end)
 --[[
 11
 31
@@ -136,44 +179,21 @@ function lobbyCheck()
            return true
         end
     end
-    return false
+	return false
 end
 
-function dungeonCheck()
-	warn('Checking')
-    for i,v in pairs(dungeonId) do
-        if game.PlaceId == i then
-			warn("Dungeon:", v)
-           return true
-        end
-    end
-	for i,v in pairs(towerId) do
-		if game.PlaceId == i then
-			warn("Tower:", v)
-           return true
-        end
-	end
-	warn('S U S')
-    return player:Kick('SUS')
-end 
-
-
 local inLobby = lobbyCheck()
-local inDungeon = dungeonCheck()
+local inDungeon = (function()
+	for i,v in pairs(dungeonId) do if game.PlaceId == i then return true end end
+	for i,v in pairs(towerId) do if game.PlaceId == i then return true end end
+	return false
+end)()
+
 if inLobby then
 	print('here')
 elseif inDungeon then
-	--repeat wait() until player:WaitForChild("PlayerGui"):WaitForChild("BoardGui")
 
-	if ms:FindFirstChild('invisibleparts') then
-		ms.invisibleparts:Destroy()
-	end
-	
-	if workspace:FindFirstChild("MobBlockers") then
-		workspace:FindFirstChild("MobBlockers"):Destroy()
-	end
-	
-	player.PlayerGui.CutsceneUI.Changed:Connect(function()
+player.PlayerGui.CutsceneUI.Changed:Connect(function()
 		warn('CutsceneUI')
 		player.PlayerGui.CutsceneUI.Enabled = false
 	end)
@@ -298,7 +318,6 @@ elseif inDungeon then
 		-- world 5-1
 		['DamageDroppers'] = true,
 		['BlazeShooters'] = true,
-		['DamageDroppers'] = true,
 		['FallAreas'] = true
 	}
 	-- Do mission

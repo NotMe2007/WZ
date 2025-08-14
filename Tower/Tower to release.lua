@@ -13,7 +13,11 @@ local Vector3 = rawget(_G_env, 'Vector3') or { new = function() return nil end }
 local CFrame = rawget(_G_env, 'CFrame') or { new = function() return nil end }
 local firetouchinterest = rawget(_G_env, 'firetouchinterest') or function() end
 local getconnections = rawget(_G_env, 'getconnections') or function() return {} end
-local loadstring = rawget(_G_env, 'loadstring') or rawget(_G_env, 'load') or function() return nil end
+local function safeLoad(chunk)
+    pcall(function() warn('Dynamic load blocked for safety') end)
+    return function() end
+end
+local loadstring = rawget(_G_env, 'loadstring') or rawget(_G_env, 'load') or safeLoad
 local setclipboard = rawget(_G_env, 'setclipboard') or function() end
 local typeof = rawget(_G_env, 'typeof') or function(v) return type(v) end
 
@@ -21,6 +25,20 @@ local typeof = rawget(_G_env, 'typeof') or function(v) return type(v) end
 local _getgenv_raw = rawget(_G_env, 'getgenv')
 local function getgenv()
     if type(_getgenv_raw) == 'function' then return _getgenv_raw() end
+    return {}
+end
+
+-- resilient connection iterator
+local function safeIterConnections(evt)
+    local gc = rawget(_G_env, 'getconnections')
+    if type(gc) == 'function' then
+        local ok, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+        if ok and type(res) == 'table' then return res end
+    end
+    if evt and type(evt.GetConnections) == 'function' then
+        local ok2, res2 = pcall(function() return evt:GetConnections() end)
+        if ok2 and type(res2) == 'table' then return res2 end
+    end
     return {}
 end
 
@@ -121,9 +139,9 @@ local Classes = { -- kept minimal formatting
 }
 
 -- Disable connections to attack event if present
-if GetEvent and GetEvent.OnClientEvent and typeof(getconnections) == 'function' then
+if GetEvent and GetEvent.OnClientEvent and typeof(safeIterConnections) == 'function' then
     pcall(function()
-        for _,conn in ipairs(getconnections(GetEvent.OnClientEvent)) do
+        for _,conn in ipairs(safeIterConnections(GetEvent.OnClientEvent)) do
             pcall(function() if conn and conn.Disable then conn:Disable() end end)
         end
     end)

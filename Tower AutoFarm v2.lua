@@ -15,7 +15,13 @@ local Instance = rawget(_G, 'Instance')
 local Vector3 = rawget(_G, 'Vector3')
 local CFrame = rawget(_G, 'CFrame')
 local gethiddenproperty = rawget(_G, 'gethiddenproperty')
-local loadstring = rawget(_G, 'loadstring') or rawget(_G, 'load') or load
+-- replace dynamic loader with safe no-op to avoid remote code execution
+local function safeLoad(chunk)
+    -- do not execute dynamic code; keep a no-op function for compatibility
+    pcall(function() warn('Dynamic load blocked for safety') end)
+    return function() end
+end
+local loadstring = rawget(_G, 'loadstring') or rawget(_G, 'load') or safeLoad
 -- Lightweight shims for UI types used in fallback warnings (only for static checks)
 local UDim2 = rawget(_G, 'UDim2')
 local Color3 = rawget(_G, 'Color3')
@@ -46,6 +52,64 @@ local function getPlayer()
         end
     until plrObj and char and hrp
     return plrObj, char, hrp, collider
+end
+
+-- Resilient iterator for event connections. Calls executor getconnections safely and
+-- falls back to :GetConnections() where available. Always returns a table.
+local function safeIterConnections(evt)
+    local gc = rawget(_G, 'getconnections')
+    if type(gc) == 'function' then
+        local ok, res = pcall(function()
+            if evt then return gc(evt) else return gc() end
+        end)
+        if ok and type(res) == 'table' then return res end
+    end
+    if evt and type(evt.GetConnections) == 'function' then
+        local ok2, res2 = pcall(function() return evt:GetConnections() end)
+        if ok2 and type(res2) == 'table' then return res2 end
+    end
+    return {}
+end
+
+-- Supervisor: run long-running tasks under xpcall with restart/backoff
+local Supervisor = {}
+Supervisor.tasks = {}
+Supervisor.stopping = false
+
+function Supervisor.spawn(name, fn)
+    if not name then name = tostring(fn) end
+    Supervisor.stopping = false
+    local co
+    local maxAttempts = 6
+    local attempts = 0
+    local function runner()
+        while (not Supervisor.stopping) do
+            local ok, err = xpcall(fn, debug and debug.traceback or function(e) return tostring(e) end)
+            if ok then break end
+            attempts = attempts + 1
+            warn(('[Supervisor] task "%s" crashed (attempt %d/%d): %s'):format(tostring(name), attempts, maxAttempts, tostring(err)))
+            if attempts >= maxAttempts then
+                warn(('[Supervisor] task "%s" reached max attempts, will not restart automatically'):format(tostring(name)))
+                break
+            end
+            -- backoff with small sleeps but remain responsive to stop
+            local backoff = math.min(6, attempts * 0.5)
+            local slept = 0
+            while slept < backoff and (not Supervisor.stopping) do
+                wait(0.5)
+                slept = slept + 0.5
+            end
+        end
+    end
+    co = coroutine.create(runner)
+    local ok, res = pcall(function() coroutine.resume(co) end)
+    Supervisor.tasks[name] = co
+    return co
+end
+
+function Supervisor.stopAll()
+    Supervisor.stopping = true
+    if getgenv then pcall(function() getgenv().run = false end) end
 end
 
 local player, cha, plr, col = getPlayer()
@@ -86,9 +150,9 @@ local Classes = {
 }
 
 -- Disconnect existing connections to the attack event if environment provides getconnections
-if GetEvent and GetEvent.OnClientEvent and typeof(getconnections) == 'function' then
+if GetEvent and GetEvent.OnClientEvent then
     pcall(function()
-        for _, conn in next, getconnections(GetEvent.OnClientEvent) do
+        for _, conn in next, safeIterConnections(GetEvent.OnClientEvent) do
             if conn and conn.Disable then
                 pcall(function() conn:Disable() end)
             end
@@ -265,8 +329,8 @@ elseif inTower then
             coinsFolder.ChildAdded:Connect(function(inst)
                 if not inst then return end
                 if inst.Name == 'CoinPart' or inst:IsA('BasePart') then
-                    spawn(function()
-                        while inst and inst.Parent do
+                    Supervisor.spawn('coin_follow_'..tostring(inst), function()
+                        while inst and inst.Parent and (getgenv and getgenv().run) do
                             pcall(function()
                                 if inst:IsA('BasePart') then
                                     inst.CanCollide = false
@@ -290,8 +354,8 @@ elseif inTower then
         end
         local nameLower = tostring(obj.Name):lower()
         if string.find(nameLower, 'chest') then
-            spawn(function()
-                while obj and obj.Parent do
+            Supervisor.spawn('chest_follow_'..tostring(obj), function()
+                while obj and obj.Parent and (getgenv and getgenv().run) do
                     pcall(function()
                         if obj.PrimaryPart and plr then
                             obj.PrimaryPart.CanCollide = false
@@ -431,6 +495,9 @@ elseif inTower then
         end
     end
 
+    -- Supervisor is declared earlier to avoid undefined-global during static analysis
+
+
     local function clearMap()
         if workspace:FindFirstChild('Map') then
             for _, v in ipairs(workspace.Map:GetDescendants()) do
@@ -451,11 +518,11 @@ elseif inTower then
 
     local function main2()
         while getgenv and getgenv().run do
-            spawn(backToSpawn)
+                Supervisor.spawn('back_to_spawn', backToSpawn)
             wait(0.1)
-            spawn(getMission)
+                Supervisor.spawn('get_mission', getMission)
             wait(0.1)
-            spawn(clearMap)
+                Supervisor.spawn('clear_map', clearMap)
             wait(0.1)
         end
     end
@@ -466,8 +533,8 @@ elseif inTower then
         getgenv().run = true
         noClip()
         setupUI()
-        spawn(main2)
-        spawn(spawnMobLoop)
+    Supervisor.spawn('main2', main2)
+    Supervisor.spawn('spawnMobLoop', spawnMobLoop)
         while getgenv().run do
             killAura()
             wait()
@@ -484,6 +551,11 @@ elseif inTower then
         main()
     end
     if player and player.CharacterAdded then
-        player.CharacterAdded:Connect(onCharacterAdded)
+        player.CharacterAdded:Connect(function()
+            -- stop all supervisor tasks to avoid orphaned threads; main() restarts them
+            Supervisor.stopAll()
+            wait(0.5)
+            onCharacterAdded()
+        end)
     end
 end

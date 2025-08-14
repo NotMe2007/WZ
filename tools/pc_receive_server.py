@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Simple HTTP server to receive JSON/text POSTs from phone and save into "game data" folder.
-Run on your PC and ensure your phone can reach the PC's IP and port (default 8000).
+Run on your PC and ensure your phone can reach the PC's IP and port (default 8080).
 """
 import os
 import sys
@@ -10,7 +10,8 @@ from urllib.parse import urlparse
 from datetime import datetime
 
 DATA_DIR = os.path.join(os.getcwd(), 'game data')
-PORT = 8000
+# Use an unprivileged default port to avoid PermissionError on many systems
+PORT = 8080
 
 class Handler(BaseHTTPRequestHandler):
     def _set_headers(self, code=200, content_type='text/plain'):
@@ -90,8 +91,8 @@ if __name__ == '__main__':
         print('\nFailed to bind any port from {0} to {1}.'.format(port, port+10))
         print('Possible causes: another process is using the port, firewall or OS policy is blocking binding, or you need elevated privileges.')
         print('\nTroubleshooting steps (PowerShell):')
-        print('  # see which process uses port 8000')
-        print('  netstat -a -n -o | findstr :8000')
+        print('  # see which process uses port 8080')
+        print('  netstat -a -n -o | findstr :8080')
         print('  # if you get a PID from the previous command, check it:')
         print('  Get-Process -Id <PID>')
         print('  # optionally stop the process (use with caution):')

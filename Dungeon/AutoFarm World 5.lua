@@ -6,6 +6,29 @@ _G.Setting = {
 	}
 }
 -- Load
+-- Local shims to satisfy static checks and provide safe fallbacks
+local game = rawget(_G, "game") or error("game global missing")
+local RunService = (game.GetService and game:GetService("RunService")) or { Heartbeat = { Wait = function() end } }
+local task = rawget(_G, "task")
+local wait = function(sec)
+	if sec then
+		if task and task.wait then
+			task.wait(sec)
+		else
+			RunService.Heartbeat:Wait()
+		end
+	else
+		RunService.Heartbeat:Wait()
+	end
+end
+local spawn = rawget(_G, "spawn") or function(fn) coroutine.wrap(fn)() end
+local getconnections = rawget(_G, "getconnections") or function(_) return {} end
+local Vector3 = rawget(_G, "Vector3") or { new = function(x,y,z) return {X=x, Y=y, Z=z} end }
+local CFrame = rawget(_G, "CFrame") or { new = function(...) return {} end }
+local Instance = rawget(_G, "Instance") or { new = function(class, parent) return {} end }
+local workspace = rawget(_G, "workspace") or (game.GetService and game:GetService("Workspace")) or error("workspace missing")
+
+-- Load
 repeat wait() until game:IsLoaded()
 
 -- Check the player
@@ -67,11 +90,26 @@ local Classes = {
 }
 
 -- Bypass
+local function safeIterConnections(evt)
+	local gc = rawget(_G, 'getconnections')
+	if type(gc) == 'function' then
+		local ok, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+		if ok and type(res) == 'table' then return res end
+	end
+	if evt and type(evt.GetConnections) == 'function' then
+		local ok2, res2 = pcall(function() return evt:GetConnections() end)
+		if ok2 and type(res2) == 'table' then return res2 end
+	end
+	return {}
+end
+
 if (GetEvent) then
-    for i,v in next, getconnections(GetEvent.OnClientEvent) do
-        v:Disable();
-    end;
-end;
+	pcall(function()
+		for _, v in next, safeIterConnections(GetEvent.OnClientEvent) do
+			pcall(function() if v and v.Disable then v:Disable() end end)
+		end
+	end)
+end
 
 local dungeonId = {
 	-- world 1
@@ -606,10 +644,10 @@ elseif inDungeon then
 						else
 							dodgeY = dodgeY + 5
 						end
-						warn(dodgeY)
+						warn(tostring(dodgeY))
 						wait(2.75)
 						dodgeY = -20
-						print('reset', dodgeY)
+						print('reset', tostring(dodgeY))
 					end
 				end
 			end)

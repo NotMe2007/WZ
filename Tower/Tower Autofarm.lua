@@ -6,7 +6,11 @@ local game = rawget(_G, 'game') or error('game global missing')
 local Instance = rawget(_G, 'Instance') or error('Instance global missing')
 local Vector3 = rawget(_G, 'Vector3') or error('Vector3 global missing')
 local Color3 = rawget(_G, 'Color3') or error('Color3 global missing')
-local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or function(s) return load(s) end
+local function safeLoad(chunk)
+    pcall(function() warn('Dynamic load blocked for safety') end)
+    return function() end
+end
+local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or safeLoad
 
 -- Localize commonly used services and functions
 local Players = game:GetService('Players')

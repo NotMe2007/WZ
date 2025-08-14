@@ -91,10 +91,25 @@ local Classes = {
 }
 
 -- Bypass
+local function safeIterConnections(evt)
+	local gc = rawget(_G, 'getconnections')
+	if type(gc) == 'function' then
+		local ok, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+		if ok and type(res) == 'table' then return res end
+	end
+	if evt and type(evt.GetConnections) == 'function' then
+		local ok2, res2 = pcall(function() return evt:GetConnections() end)
+		if ok2 and type(res2) == 'table' then return res2 end
+	end
+	return {}
+end
+
 if (GetEvent) then
-    for i,v in next, getconnections(GetEvent.OnClientEvent) do
-        v:Disable()
-    end
+	pcall(function()
+		for _, v in next, safeIterConnections(GetEvent.OnClientEvent) do
+			pcall(function() if v and v.Disable then v:Disable() end end)
+		end
+	end)
 end
 --[[
 11

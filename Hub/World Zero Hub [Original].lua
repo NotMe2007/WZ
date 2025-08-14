@@ -65,24 +65,24 @@ local player, char, plr, col = getPlayer()
 local CombatMod = safeRequire(ReplicatedStorage:FindFirstChild('Shared') and ReplicatedStorage.Shared:FindFirstChild('Combat') or nil)
 local SettingsMod = safeRequire(ReplicatedStorage:FindFirstChild('Shared') and ReplicatedStorage.Shared:FindFirstChild('Settings') or nil)
 
--- UI library (guarded)
-local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or load
-local library
-do
-    local ok, res = pcall(function()
-        local src = game:HttpGet('https://pastebin.com/raw/FsJak6AT')
-        if src and #src > 0 then
-            local fn = loadfunc(src)
-            if type(fn) == 'function' then return fn() end
-        end
-    end)
-    library = ok and res or nil
-end
+-- UI library: remote UI execution disabled; use a no-op library stub
+local library = { CreateWindow = function(title, ...)
+    local win = {}
+    function win:CreateFolder(name)
+        local folder = {}
+        function folder:Toggle(...) end
+        function folder:Button(...) end
+        function folder:Slider(...) end
+        function folder:Label(...) end
+        function folder:Bind(...) end
+        function folder:CreateFolder() return folder end
+        function folder:GuiSettings(...) end
+        return folder
+    end
+    return win
+end }
 
-local UI
-if library then
-    UI = library:CreateWindow('World Zero Hub')
-end
+local UI = library:CreateWindow('World Zero Hub')
 
 -- Provide Enum and setclipboard safely for linters/runtime
 local Enum = rawget(_G, 'Enum') or {}

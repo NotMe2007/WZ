@@ -67,6 +67,85 @@ end
 -- Helper API
 local M = {}
 
+-- Attempt to load local saver helper when running in a local Lua environment
+local saver = nil
+do
+    local ok, s = pcall(function()
+        if type(dofile) == 'function' then
+            return dofile('tools/save_to_game_data.lua')
+        end
+        return nil
+    end)
+    if ok and type(s) == 'table' then saver = s end
+end
+
+-- Persist current config to disk (best-effort, non-fatal)
+function M.save()
+    if not saver or type(saver.save_table) ~= 'function' then
+        return false, 'no saver available'
+    end
+    local ok, err = pcall(function() return saver.save_table('settings', config) end)
+    if not ok then return false, err end
+    return true
+end
+
+-- Load persisted config from disk (best-effort). Merges into current config.
+function M.load()
+    -- try to open the settings file at ./game data/settings.json
+    if type(io) ~= 'table' or type(io.open) ~= 'function' then
+        return false, 'io not available'
+    end
+    local path = 'game data/settings.json'
+    local fh, err = io.open(path, 'r')
+    if not fh then return false, err end
+    local content = fh:read('*a')
+    fh:close()
+    if not content or #content == 0 then return false, 'empty' end
+
+    -- Try Roblox HttpService first (if running in Roblox)
+    local ok, data = pcall(function()
+        if game and type(game.GetService) == 'function' then
+            local HttpService = game:GetService('HttpService')
+            if HttpService then
+                -- Use pcall when calling JSON decode to avoid errors
+                local ok2, dec = pcall(function() return HttpService:JSONDecode(content) end)
+                if ok2 then return dec end
+            end
+        end
+        return nil
+    end)
+    if ok and type(data) == 'table' then
+        merge_defaults(config, data)
+        return true
+    end
+
+    -- Try a common Lua json module
+    ok, data = pcall(function() return (require and require('json') and require('json').decode and require('json').decode(content)) end)
+    if ok and type(data) == 'table' then
+        merge_defaults(config, data)
+        return true
+    end
+
+    -- Fallback: try to convert JSON-ish to Lua table literal and load it (best-effort, local only)
+    local converted = content:gsub('%f[%S]null%f[%s%p]', 'nil')
+    converted = converted:gsub('(%b"" )%s*:%s*', function(k) return '['..k..'] = ' end)
+    -- also handle keys without trailing space
+    converted = converted:gsub('(%b"")%s*:%s*', function(k) return '['..k..'] = ' end)
+    local chunk = 'return ' .. converted
+    local load_fn = rawget(_G, 'load') or rawget(_G, 'loadstring')
+    if type(load_fn) == 'function' then
+        local ok2, res = pcall(function() return load_fn(chunk) end)
+        if ok2 and type(res) == 'function' then
+            local ok3, tbl = pcall(res)
+            if ok3 and type(tbl) == 'table' then
+                merge_defaults(config, tbl)
+                return true
+            end
+        end
+    end
+    return false, 'decode failed'
+end
+
 function M.set(path, value)
     -- path is dot-separated (e.g. "Settings.Dungeon.Enabled")
     if type(path) ~= 'string' then return false end
@@ -79,6 +158,8 @@ function M.set(path, value)
         cur = cur[k]
     end
     cur[parts[#parts]] = value
+    -- best-effort persist
+    pcall(M.save)
     return true
 end
 
@@ -107,4 +188,6 @@ end
 
 -- Return the config and API for other scripts
 M.config = config
+-- Try loading persisted settings (best-effort)
+pcall(M.load)
 return M

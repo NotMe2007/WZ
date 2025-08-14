@@ -50,6 +50,20 @@ _G.SliderColor = Color3.fromRGB(0,255,0)
 -- wait for the game load
 repeat wait() until game:IsLoaded()
 
+-- resilient connection iterator
+local function safeIterConnections(evt)
+    local gc = rawget(_G, 'getconnections')
+    if type(gc) == 'function' then
+        local ok, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+        if ok and type(res) == 'table' then return res end
+    end
+    if evt and type(evt.GetConnections) == 'function' then
+        local ok2, res2 = pcall(function() return evt:GetConnections() end)
+        if ok2 and type(res2) == 'table' then return res2 end
+    end
+    return {}
+end
+
 -- Check require
 if not require then
     game.Players.LocalPlayer:Kick('Bye not support')
@@ -165,10 +179,13 @@ local Classes = {
 }
 
 -- bypass
+-- disable client handlers where possible
 if (GetEvent) then
-    for i,v in next, getconnections(GetEvent.OnClientEvent) do
-        v:Disable()
-    end
+    pcall(function()
+        for _, v in next, safeIterConnections(GetEvent.OnClientEvent) do
+            pcall(function() if v and v.Disable then v:Disable() end end)
+        end
+    end)
 end
 
 
@@ -408,14 +425,9 @@ end
 -- Safely load UI library; fall back to a minimal no-op stub when network or pastebin is unavailable
 local library
 do
-    local ok, lib = pcall(function()
-        if not game or not game.HttpGet then error('no http') end
-        local s = game:HttpGet('https://pastebin.com/raw/FsJak6AT')
-    local loader = rawget(_G, 'load') or rawget(_G, 'loadstring')
-    if not loader then error('no loader') end
-    local chunk = loader(s)
-    if type(chunk) == 'function' then return chunk() end
-    end)
+    -- remote UI loader disabled; prefer bundled/noop library to avoid executing network code
+    local ok, lib = false, nil
+    do end
     if ok and lib then
         library = lib
     else

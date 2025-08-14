@@ -4,7 +4,7 @@
 
 -- Network target defaults — override by calling configure() or setting getgenv().PC_SEND
 local PC_IP = '192.168.31.1' -- e.g. 192.168.1.5
-local PC_PORT = 8000
+local PC_PORT = 8080
 local PATH = '/upload'
 
 -- Allow runtime overrides from environment (safe read)

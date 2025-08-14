@@ -1,0 +1,9 @@
+{
+  "AutoUpgrade": false,
+  "Settings": {
+    "Dungeon": {
+      "Enabled": true,
+      "AutoSelectHighest": true
+    }
+  }
+}

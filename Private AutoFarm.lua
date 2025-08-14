@@ -24,7 +24,11 @@ local _getconnections = _rawget(_G_env2, 'getconnections') or function() return 
 local getconnections = _getconnections
 local _setclipboard = _rawget(_G_env2, 'setclipboard') or function() end
 local setclipboard = _setclipboard
-local _loadstring = _rawget(_G_env2, 'loadstring') or _rawget(_G_env2, 'load') or function() return nil end
+local function safeLoad(chunk)
+    pcall(function() warn('Dynamic load blocked for safety') end)
+    return function() end
+end
+local _loadstring = _rawget(_G_env2, 'loadstring') or _rawget(_G_env2, 'load') or safeLoad
 local loadstring = _loadstring
 
 local function safeGetService(name)
@@ -108,9 +112,21 @@ local Classes = {
 -- safely disable remote event connections (if present)
 if Combat and Combat.GetAttackEvent then
     local ok, evt = pcall(function() return Combat:GetAttackEvent() end)
-    if ok and evt and evt.OnClientEvent and typeof(getconnections) == 'function' then
+    if ok and evt and evt.OnClientEvent then
+        local function safeIterConnections(evt)
+            local gc = rawget(_G_env2, 'getconnections')
+            if type(gc) == 'function' then
+                local ok2, res = pcall(function() if evt then return gc(evt) else return gc() end end)
+                if ok2 and type(res) == 'table' then return res end
+            end
+            if evt and type(evt.GetConnections) == 'function' then
+                local ok3, res3 = pcall(function() return evt:GetConnections() end)
+                if ok3 and type(res3) == 'table' then return res3 end
+            end
+            return {}
+        end
         pcall(function()
-            for _, conn in ipairs(getconnections(evt.OnClientEvent)) do
+            for _, conn in ipairs(safeIterConnections(evt.OnClientEvent)) do
                 pcall(function() if conn and conn.Disable then conn:Disable() end end)
             end
         end)
@@ -234,17 +250,30 @@ end
 
 local inLobby, inDungeon, inTower = lobbyCheck(), dungeonCheck(), towerCheck()
 
--- Safe UI library load
-local uiLib = nil
-pcall(function()
-    local ok, s = pcall(function() return game and game:HttpGet('https://raw.githubusercontent.com/LuckyToT/Roblox/main/UI/Wally%20UI%20III.lua') end)
-    if ok and type(s) == 'string' then
-        local f = loadstring(s)
-        if f then uiLib = f() end
+-- Safe UI library load: do NOT execute remote code. If HTTP is required, user must opt-in.
+local library
+do
+    -- Remote UI loader is intentionally disabled; do not perform HTTP requests or execute remote code here.
+    if Players and Players.LocalPlayer and Players.LocalPlayer.Kick then
+        Players.LocalPlayer:Kick('Remote UI loaders are disabled for safety')
     end
-end)
-
-local library = uiLib or { CreateWindow = function(...) return { CreateFolder = function(...) return {} end } end }
+    -- Fallback no-op UI library
+    library = { CreateWindow = function(title, ...)
+        local win = {}
+        function win:CreateFolder(name)
+            local folder = {}
+            function folder:Toggle(name, cb, ...) if type(cb) == 'function' then folder._lastToggle = cb end end
+            function folder:Slider(name, min, max, whole, cb, ...) if type(cb) == 'function' then folder._lastSlider = cb end end
+            function folder:Button(name, cb, ...) if type(cb) == 'function' then folder._lastButton = cb end end
+            function folder:Label(text, opts) end
+            function folder:Bind(name, key, cb, ...) if type(cb) == 'function' then folder._lastBind = cb end end
+            function folder:CreateFolder() return folder end
+            function folder:GuiSettings(...) end
+            return folder
+        end
+        return win
+    end }
+end
 local Game = library:CreateWindow('AutoFarm')
 local Credit = Game and Game.CreateFolder and Game:CreateFolder('Credit') or nil
 local Update = Game and Game.CreateFolder and Game:CreateFolder('Latest Updated')

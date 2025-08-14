@@ -1,6 +1,4 @@
--- save_to_game_data.lua
--- Simple helper to create a "game data" folder in the current working directory
--- and save important data (JSON/text) there. Designed to be run locally.
+-- This file is now plain Lua without Markdown fences.
 
 local M = {}
 local DATA_DIR = "game data"
