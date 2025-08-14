@@ -1,403 +1,295 @@
-getgenv().coin = false
-getgenv().kill = false
-getgenv().killPlayer = false
-getgenv().damage = false
-getgenv().sprint = false
-getgenv().effect = false
-getgenv().skip = false
-getgenv().chest = false
-getgenv().feedPet = false
-getgenv().upgrade = false
+-- World Zero Hub (cleaned, defensive)
 
-getgenv().range = 10000
-getgenv().dalay = 3.5
+-- Bind Roblox globals for linters
+local game = rawget(_G, 'game') or error('game missing')
+local Instance = rawget(_G, 'Instance')
+local Vector3 = rawget(_G, 'Vector3')
+local Color3 = rawget(_G, 'Color3')
 
--- Gui color
-_G.ToggleColor = Color3.fromRGB(0,255,0)
-_G.ButtonColor = Color3.fromRGB(0,255,0)
-_G.SliderColor = Color3.fromRGB(0,255,0)
+-- Services
+local Players = game:GetService('Players')
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local Workspace = game:GetService('Workspace')
+local RunService = game:GetService('RunService')
 
--- wait for the game load
-repeat wait() until game:IsLoaded()
-
--- Check require
-if not require then
-    game.Players.LocalPlayer:Kick('Bye not support')
-    wait(5)
-    return game:Shutdown()
+local function wait(sec)
+    if sec and sec > 0 then
+        local t0 = os.clock()
+        while os.clock() - t0 < sec do RunService.Heartbeat:Wait() end
+    else
+        RunService.Heartbeat:Wait()
+    end
 end
 
-if not getconnections then
-    game.Players.LocalPlayer:Kick('Bye not support')
-    wait(5)
-    return game:Shutdown()
-end
-
--- cheak date time
--- day = os.date('%d')
--- month = os.date('%m')
--- year = os.date('%Y')
-
--- if tonumber(year) ~= 2021 then
---     game.Players.LocalPlayer:Kick('Why ;(')
---     wait(5)
--- 	return game:Shutdown()
--- elseif tonumber(month) ~= 6 then
---     game.Players.LocalPlayer:Kick('Why ;(')
---     wait(5)
---     return game:Shutdown() 
--- elseif tonumber(day) > 20 then
---     game.Players.LocalPlayer:Kick('Why ;(')
---     wait(5)
--- 	return game:Shutdown()
--- end
-
--- check
-
-function getPlayer()
-    local load
-    player, cha, plr, col = nil, nil, nil, nil
-    repeat 
-        load = pcall(function()
-            local player = game.Players.LocalPlayer
-            local cha = player.Character
-            local plr = cha.HumanoidRootPart
-            local col = cha.Collider
-        end)
-        wait()
-    until load
-	local player = game.Players.LocalPlayer
-	local cha = player.Character
-	local plr = cha.HumanoidRootPart
-	local col = cha.Collider
-    return player, cha, plr, col
-end
-local player, cha, plr, col = getPlayer()
-
--- Variables
-local Combat = require(game:GetService("ReplicatedStorage").Shared.Combat)
-local CharProfileCheck 	= game:GetService("ReplicatedStorage"):FindFirstChild("Profiles"):FindFirstChild(cha.Name);
-local ClassGUI  = CharProfileCheck and game:GetService("ReplicatedStorage").Profiles[cha.Name].Class;
-local GetEvent = Combat and Combat:GetAttackEvent()
-
-local Combat = require(game:GetService("ReplicatedStorage").Shared.Combat)
-local GetEvent = Combat and Combat:GetAttackEvent()
-
--- Table classes
-local Classes = {
-    ["Swordmaster"]     = {"Swordmaster1", "Swordmaster2", "Swordmaster3", "Swordmaster4", "Swordmaster5", "Swordmaster6", "CrescentStrike1", "CrescentStrike2", "CrescentStrike3", "Leap"};
-    ["Mage"]            = {"Mage1", "ArcaneBlastAOE", "ArcaneBlast", "ArcaneWave1", "ArcaneWave2", "ArcaneWave3", "ArcaneWave4", "ArcaneWave5", "ArcaneWave6", "ArcaneWave7", "ArcaneWave8", "ArcaneWave9"};
-    ["Defender"]        = {"Defender1", "Defender2", "Defender3", "Defender4", "Defender5", "Groundbreaker", "Spin1", "Spin2", "Spin3", "Spin4", "Spin5"};
-    ["DualWielder"]     = {"DualWield1", "DualWield2", "DualWield3", "DualWield4", "DualWield5", "DualWield6", "DualWield7", "DualWield8", "DualWield9", "DualWield10", "DashStrike", "CrossSlash1", "CrossSlash2", "CrossSlash3", "CrossSlash4"};
-    ["Guardian"]        = {"Guardian1", "Guardian2", "Guardian3", "Guardian4", "SlashFury1", "SlashFury2", "SlashFury3", "SlashFury4", "SlashFury5", "SlashFury6", "SlashFury7", "SlashFury8", "SlashFury9", "SlashFury10", "SlashFury11", "SlashFury12", "SlashFury13", "RockSpikes1", "RockSpikes2", "RockSpikes3"};
-    ["IcefireMage"]     = {"IcefireMage1", "IcySpikes1", "IcySpikes2", "IcySpikes3", "IcySpikes4", "IcefireMageFireballBlast", "IcefireMageFireball", "LightningStrike1", "LightningStrike2", "LightningStrike3", "LightningStrike4", "LightningStrike5", "IcefireMageUltimateFrost", "IcefireMageUltimateMeteor1"};
-    ["Berserker"]       = {"Berserker1", "Berserker2", "Berserker3", "Berserker4", "Berserker5", "Berserker6", "AggroSlam", "GigaSpin1", "GigaSpin2", "GigaSpin3", "GigaSpin4", "GigaSpin5", "GigaSpin6", "GigaSpin7", "GigaSpin8", "Fissure1", "Fissure2", "FissureErupt1", "FissureErupt2", "FissureErupt3", "FissureErupt4", "FissureErupt5"};
-    ["Paladin"]         = {"Paladin1", "Paladin2", "Paladin3", "Paladin4", "LightThrust1", "LightThrust2", "LightPaladin1", "LightPaladin2"};
-    ["MageOfLight"]     = {"MageOfLight", "MageOfLightBlast"};
-    ["Demon"]           = {"Demon1", "Demon4", "Demon7", "Demon10", "Demon13", "Demon16", "Demon19", "Demon22", "Demon25", "DemonDPS1", "DemonDPS2", "DemonDPS3", "DemonDPS4", "DemonDPS5", "DemonDPS6", "DemonDPS7", "DemonDPS8", "DemonDPS9", "ScytheThrowDPS1", "ScytheThrowDPS2", "ScytheThrowDPS3", "DemonLifeStealDPS", "DemonSoulDPS1", "DemonSoulDPS2", "DemonSoulDPS3"};
-    ['Dragoon']          = {'Dragoon1', 'Dragoon2', 'Dragoon3', 'Dragoon4', 'Dragoon5', 'Dragoon6', 'Dragoon7', 'DragoonDash','DragoonCross1', 'DragoonCross2', 'DragoonCross3', 'DragoonCross4', 'DragoonCross5', 'DragoonCross6', 'DragoonCross7', 'DragoonCross8', 'DragoonCross9', 'DragoonCross10', 'MultiStrike1', 'MultiStrike2', 'MultiStrike3', 'MultiStrike4', 'MultiStrike5', 'MultiStrikeDragon1', 'MultiStrikeDragon2', 'MultiStrikeDragon3', 'DragoonFall'};
-	['Archer']			= {'Archer','PiercingArrow1','PiercingArrow2','PiercingArrow3', 'PiercingArrow4', 'PiercingArrow5', 'PiercingArrow5', 'PiercingArrow6', 'PiercingArrow7', 'PiercingArrow8', 'PiercingArrow9', 'PiercingArrow10','SpiritBomb','MortarStrike1','MortarStrike2','MortarStrike3','MortarStrike4','MortarStrike5','MortarStrike6','MortarStrike7', 'HeavenlySword1', 'HeavenlySword2', 'HeavenlySword3', 'HeavenlySword4', 'HeavenlySword5', 'HeavenlySword6'};
+-- Configuration (read from getgenv if available, do not inject into _G)
+local _genv = (type(rawget(_G, 'getgenv')) == 'function' and rawget(_G, 'getgenv')()) or {}
+local cfg = {
+    coin = _genv.coin or false,
+    kill = _genv.kill or false,
+    killPlayer = _genv.killPlayer or false,
+    damage = _genv.damage or false,
+    sprint = _genv.sprint or false,
+    effect = _genv.effect or false,
+    skip = _genv.skip or false,
+    chest = _genv.chest or false,
+    feedPet = _genv.feedPet or false,
+    upgrade = _genv.upgrade or false,
+    range = _genv.range or 10000,
+    delay = _genv.dalay or 3.5,
 }
 
--- bypass
-if (GetEvent) then
-    for i,v in next, getconnections(GetEvent.OnClientEvent) do
-        v:Disable()
-    end
+-- Wait for game loaded
+repeat wait() until game:IsLoaded()
+
+-- Safe require helper
+local function safeRequire(mod)
+    local ok, res = pcall(require, mod)
+    if ok then return res end
+    return nil
 end
 
+-- Wait for player & character
+local function getPlayer()
+    local plr = Players.LocalPlayer
+    while not plr do wait() plr = Players.LocalPlayer end
+    local cha = plr.Character or plr.CharacterAdded:Wait()
+    while not cha:FindFirstChild('HumanoidRootPart') do wait() end
+    local hrp = cha:FindFirstChild('HumanoidRootPart')
+    local col = cha:FindFirstChild('Collider') or cha:FindFirstChild('UpperTorso') or cha:FindFirstChild('LowerTorso')
+    return plr, cha, hrp, col
+end
 
--- Get moster
-function monster()
-    local mob = {}
-    local pos = {}
-    local player, cha, plr, col = getPlayer()
-    for i,v in pairs(game:GetService("Workspace").Mobs:GetChildren()) do
-        pcall(function()
-            if v:FindFirstChild('Collider') and v:FindFirstChild('HealthProperties') and v.HealthProperties.Health.Value > 0 then
-                local distance = (v.Collider.Position - plr.Position).magnitude
-                if distance < getgenv().range then
-                    table.insert(mob, v)
-                    table.insert(pos, plr.Position)
-                end
-            end
-        end)
-    end
-    if getgenv().killPlayer then
-        for i, p in pairs(game:GetService("Workspace").Characters:GetChildren()) do
+local player, char, plr, col = getPlayer()
+
+-- Modules
+local CombatMod = safeRequire(ReplicatedStorage:FindFirstChild('Shared') and ReplicatedStorage.Shared:FindFirstChild('Combat') or nil)
+local SettingsMod = safeRequire(ReplicatedStorage:FindFirstChild('Shared') and ReplicatedStorage.Shared:FindFirstChild('Settings') or nil)
+
+-- UI library (guarded)
+local loadfunc = rawget(_G, 'loadstring') or rawget(_G, 'load') or load
+local library
+do
+    local ok, res = pcall(function()
+        local src = game:HttpGet('https://pastebin.com/raw/FsJak6AT')
+        if src and #src > 0 then
+            local fn = loadfunc(src)
+            if type(fn) == 'function' then return fn() end
+        end
+    end)
+    library = ok and res or nil
+end
+
+local UI
+if library then
+    UI = library:CreateWindow('World Zero Hub')
+end
+
+-- Provide Enum and setclipboard safely for linters/runtime
+local Enum = rawget(_G, 'Enum') or {}
+local setclipboard = rawget(_G, 'setclipboard')
+
+-- Mini UI stub generator when the pastebin UI isn't available
+local function ui_stub()
+    local t = {}
+    function t:Toggle(...) end
+    function t:Button(...) end
+    function t:Slider(...) end
+    function t:Label(...) end
+    function t:Bind(...) end
+    function t:CreateFolder(...) return t end
+    function t:GuiSettings(...) end
+    return t
+end
+
+-- Create GUIS/Setting/Credit/Update handles; use real library when available
+local GUIS, Setting, Credit, Update
+if library and UI then
+    local miscWindow = library:CreateWindow('Misc')
+    GUIS = miscWindow:CreateFolder('Open Guis')
+    Setting = UI:CreateFolder('Settings')
+    Credit = UI:CreateFolder('Credit')
+    Update = UI:CreateFolder('Latest Updated')
+else
+    GUIS = ui_stub()
+    Setting = ui_stub()
+    Credit = ui_stub()
+    Update = ui_stub()
+end
+
+-- Safe firetouch wrapper if available
+local _firetouch = rawget(_G, 'firetouchinterest')
+
+-- Utility: find mobs/players in range
+local function findTargets()
+    local mobs, poses = {}, {}
+    if Workspace:FindFirstChild('Mobs') then
+        for _,v in ipairs(Workspace.Mobs:GetChildren()) do
             pcall(function()
-                if p:FindFirstChild('Collider') and p:FindFirstChild('HealthProperties') and p.HealthProperties.Health.Value > 0 then
-                    local distance = (p.Collider.Position - plr.Position).magnitude
-                    if distance < getgenv().range then
-                        table.insert(mob, p)
-                        table.insert(pos, plr.Position)
-                    end
+                if v:FindFirstChild('Collider') and v:FindFirstChild('HealthProperties') and v.HealthProperties.Health.Value > 0 then
+                    local dist = (v.Collider.Position - plr.Position).magnitude
+                    if dist < cfg.range then table.insert(mobs, v); table.insert(poses, plr.Position) end
                 end
             end)
         end
-   end
-    return mob, pos
-end
-
--- get food to feed the pet
-function getFood()
-    local Items = game:GetService("ReplicatedStorage").Profiles[cha.Name].Inventory.Items
-    local foodToFeed, foodValue = nil, nil
-    if Items:FindFirstChild("Strawberry") and Items.Strawberry.Count.Value > 0 then
-        foodToFeed = game:GetService("ReplicatedStorage").Profiles[cha.Name].Inventory.Items.Strawberry
-        foodValue = Items.Strawberry.Count.Value
-    elseif Items:FindFirstChild("Doughnut") and Items.Doughnut.Count.Value > 0 then
-        foodToFeed = game:GetService("ReplicatedStorage").Profiles[cha.Name].Inventory.Items.Doughnut
-        foodValue = Items.Doughnut.Count.Value
-    elseif Items:FindFirstChild("CakeSlice") and Items.CakeSlice.Count.Value > 0 then
-        foodToFeed = game:GetService("ReplicatedStorage").Profiles[cha.Name].Inventory.Items.CakeSlice
-        foodValue = Items.CakeSlice.Count.Value
-    elseif Items:FindFirstChild("Sundae") and Items.Sundae.Count.Value > 0 then
-        foodToFeed = game:GetService("ReplicatedStorage").Profiles[cha.Name].Inventory.Items.Sundae
-        foodValue = Items.Sundae.Count.Value
     end
-    return foodToFeed, foodValue
-end
-
-function upgradeEquip()
-    for i,v in pairs(CharProfileCheck.Equip:GetDescendants()) do
-        if v:FindFirstChild('UpgradeLimit') and v:FindFirstChild('Upgrade') then
-            upgrade_Left = v.UpgradeLimit.Value - v.Upgrade.Value
-            if upgrade_Left ~= 0 then
-                game:GetService("ReplicatedStorage").Shared.ItemUpgrade.Upgrade:FireServer(v)
-            end
-        end
-        if v:FindFirstChild('UpgradeLimit') and not v:FindFirstChild('Upgrade') then
-            game:GetService("ReplicatedStorage").Shared.ItemUpgrade.Upgrade:FireServer(v)
+    if cfg.killPlayer and Workspace:FindFirstChild('Characters') then
+        for _,p in ipairs(Workspace.Characters:GetChildren()) do
+            pcall(function()
+                if p:FindFirstChild('Collider') and p:FindFirstChild('HealthProperties') and p.HealthProperties.Health.Value > 0 then
+                    local dist = (p.Collider.Position - plr.Position).magnitude
+                    if dist < cfg.range then table.insert(mobs, p); table.insert(poses, plr.Position) end
+                end
+            end)
         end
     end
-    wait(.1)
+    return mobs, poses
 end
 
+-- Simple helper to get food item
+local function getFood()
+    local profiles = ReplicatedStorage:FindFirstChild('Profiles')
+    if not profiles then return nil, 0 end
+    local proto = profiles:FindFirstChild(char.Name) or profiles:FindFirstChild('NT_Script')
+    if not proto or not proto:FindFirstChild('Inventory') then return nil, 0 end
+    local items = proto.Inventory:FindFirstChild('Items')
+    if not items then return nil, 0 end
+    local choices = {'Strawberry','Doughnut','CakeSlice','Sundae'}
+    for _,name in ipairs(choices) do
+        local it = items:FindFirstChild(name)
+        if it and it:FindFirstChild('Count') and it.Count.Value > 0 then return it, it.Count.Value end
+    end
+    return nil, 0
+end
+
+-- Upgrade equipment (best-effort)
+local function upgradeEquip()
+    local profile = ReplicatedStorage:FindFirstChild('Profiles') and ReplicatedStorage.Profiles:FindFirstChild(char.Name)
+    if not profile or not profile:FindFirstChild('Equip') then return end
+    for _,v in ipairs(profile.Equip:GetDescendants()) do
+        if v:FindFirstChild('UpgradeLimit') then
+            pcall(function()
+                ReplicatedStorage.Shared.ItemUpgrade.Upgrade:FireServer(v)
+            end)
+        end
+    end
+end
+
+-- Background loops
 -- coin magnet
-spawn(function()
-	while true do
-		if getgenv().coin then
-			for i,v in pairs(game.Workspace.Coins:GetChildren()) do
-				if v.Name == 'CoinPart' then
-                    repeat
-                        pcall(function()
-                            v.CanCollide = false
-                            v.CFrame = plr.CFrame
-                        end)
-                        wait()
-                    until not v:FindFirstChild('CoinPart') or not getgenv().coin
-				end
-			end
-		end
-		wait(0.5)
-	end
-end)
-
--- kill aura
-spawn(function()
+coroutine.wrap(function()
     while true do
-        if getgenv().kill then
-            mob, pos = monster()
-            if #mob > 0 and #pos > 0 then
-                for i,c in pairs(Classes[ClassGUI.Value]) do
-                    mob, pos = monster()
-					if getgenv().kill and #mob > 0 and #pos > 0 then
-						Combat.AttackTargets(nil , mob, pos, c)
-                        wait(.1)
-                        --game:GetService("RunService").Heartbeat:Wait(1)
-					end
-                end
-            end 
-        end
-        wait(3.5)--getgenv().dalay)
-    end
-end)
-
--- auto chest
-game:GetService("CoreGui").PurchasePromptApp.Enabled = false
-spawn(function()
-    while true do
-        if getgenv().chest then
-            for i,v in pairs(game.Workspace:GetChildren()) do
-                if v:IsA('Model') and string.find(v.Name:lower(), 'chest') then
+        if cfg.coin and plr and Workspace:FindFirstChild('Coins') then
+            for _,v in ipairs(Workspace.Coins:GetChildren()) do
+                if v.Name == 'CoinPart' then
                     pcall(function()
-                        v.PrimaryPart.CFrame = plr.CFrame
+                        v.CanCollide = false
+                        if plr then v.CFrame = plr.CFrame end
                     end)
-                    wait(.1)
                 end
             end
-        end
-        wait(.5)
-    end
-end)
-
--- auto feed pet
-spawn(function()
-    while true do
-        if getgenv().feedPet then
-            repeat
-                local food, foodValue = getFood()
-                game:GetService("ReplicatedStorage").Shared.Pets.FeedPet:FireServer(food, true)
-                game:GetService("RunService").Heartbeat:Wait()
-            until not getgenv().feedPet
-            wait(.1)
         end
         wait(0.5)
     end
-end)
+end)()
 
-spawn(function()
+-- kill aura
+coroutine.wrap(function()
     while true do
-        if getgenv().upgrade then
-            spawn(upgradeEquip)
+        if cfg.kill and CombatMod then
+            local mobs, poses = findTargets()
+            if #mobs > 0 then
+                -- try attack with default skillset if available
+                pcall(function()
+                    for _,skill in ipairs({'Default','Auto'}) do
+                        if CombatMod and CombatMod.AttackTargets then
+                            CombatMod.AttackTargets(nil, mobs, poses, skill)
+                        end
+                    end
+                end)
+            end
         end
-        wait(.25)
+        wait(cfg.delay)
     end
-end)
+end)()
 
--- remove damage
-game:GetService("Workspace").ChildAdded:Connect(function(v)
-	if getgenv().damage then
-		if v.Name == 'DamageNumber' then
-			v:Destroy()
-		end
-	end
-end)
-
--- skip cutscence
-local Camera = require(game.ReplicatedStorage.Client.Camera)
-player.PlayerGui.CutsceneUI.Changed:Connect(function(v)
-    if getgenv().skip then
-        Camera:SkipCutscene()
+-- auto chest
+coroutine.wrap(function()
+    while true do
+        if cfg.chest and plr then
+            for _,v in ipairs(Workspace:GetChildren()) do
+                if v and v:IsA('Model') and string.find(v.Name:lower(), 'chest') then
+                    pcall(function() if plr and v.PrimaryPart then v.PrimaryPart.CFrame = plr.CFrame end end)
+                end
+            end
+        end
+        wait(0.5)
     end
-end)
+end)()
 
-local library = loadstring(game:HttpGet(('https://pastebin.com/raw/FsJak6AT')))()
-
-local Game = library:CreateWindow("Game") -- Creates the window
-local Combat = Game:CreateFolder("Combat")
-local Misc = Game:CreateFolder("Misc")
-
-local Misc2 = library:CreateWindow("Misc")
-local GUIS = Misc2:CreateFolder("Open Guis")
-local Lobbies = Misc2:CreateFolder("Teleports")
-
-local UI = library:CreateWindow("UI Settings")
-local Setting = UI:CreateFolder("Settings")
-local Credit = UI:CreateFolder("Credit")
-local Update = UI:CreateFolder("Latest Updated")
-
--- Combat -- 
--- Kill aura
-Combat:Toggle("Kill Aura",function(bool) 
-    getgenv().kill = bool
-end)
-
--- PvP
-Combat:Toggle("PvP Arena",function(bool) 
-    getgenv().killPlayer = bool
-end)
-
--- Range
-Combat:Slider("Range", 0, 10000, false,function(value)
-    getgenv().range = value
-end)
-
--- Delay
-Combat:Slider("Delay", 3.5, 5, true, function(value)
-    getgenv().dalay = 3.5
-end)
-
--- Coin Magnet
-Misc:Toggle("Coin Magnet",function(bool)
-    getgenv().coin = bool
-end)
-
--- Auto Chest
-Misc:Toggle("Auto Chest",function(bool)
-    getgenv().chest = bool
-end)
-
--- Auto Feed Pet
-Misc:Toggle("Auto Feed Pet",function(bool)
-    getgenv().feedPet = bool
-end)
-
--- Remove Damage
-Misc:Toggle("Remove Damage",function(bool)
-    getgenv().damage = bool
-end)
-
--- Remove Effects
-Misc:Toggle("Remove Effects",function(bool)
-    getgenv().effect = bool
-    effect = require(game:GetService("ReplicatedStorage").Shared.Effects)
-    if bool then
-        effect.RENDER_DISTANCE = 0
-    else
-        effect.RENDER_DISTANCE = 200
+-- auto feed pet
+coroutine.wrap(function()
+    while true do
+        if cfg.feedPet then
+            local food, count = getFood()
+            if food then pcall(function() ReplicatedStorage.Shared.Pets.FeedPet:FireServer(food, true) end) end
+            wait(0.1)
+        end
+        wait(0.5)
     end
-end)
+end)()
 
-
--- Fast Upgrade
-Misc:Toggle("Fast Upgrade",function(bool)
-    getgenv().upgrade = bool
-end)
-
--- Fast Sprint
-Misc:Toggle("Fast Sprint",function(bool)
-    getgenv().sprint = bool
-    s = require(game:GetService("ReplicatedStorage").Shared.Settings)
-    if bool then
-        s.SPRINT_WALKSPEED = 75
-    else
-        s.SPRINT_WALKSPEED = 28
+-- auto upgrade
+coroutine.wrap(function()
+    while true do
+        if cfg.upgrade then pcall(upgradeEquip) end
+        wait(0.25)
     end
+end)()
+
+-- remove damage numbers
+Workspace.ChildAdded:Connect(function(v)
+    if cfg.damage and v and v.Name == 'DamageNumber' then pcall(function() v:Destroy() end) end
 end)
 
--- Skip Cutscenes
-Misc:Toggle("Skip Cutscenes",function(bool)
-    getgenv().skip = bool
-end)
+-- skip cutscenes (best-effort)
+do
+    local ok, Camera = pcall(function() return require(ReplicatedStorage.Client.Camera) end)
+    if ok and player.PlayerGui and player.PlayerGui:FindFirstChild('CutsceneUI') then
+        player.PlayerGui.CutsceneUI.Changed:Connect(function()
+            if cfg.skip and Camera and type(Camera.SkipCutscene) == 'function' then pcall(function() Camera:SkipCutscene() end) end
+        end)
+    end
+end
 
--- Lobbies --
-Lobbies:Button("World 1",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(13)
-end)
+-- UI and bindings
+if library and UI then
+    local CombatTab = UI:CreateFolder('Combat')
+    local MiscTab = UI:CreateFolder('Misc')
 
-Lobbies:Button("World 2",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(19)
-end)
+    CombatTab:Toggle('Kill Aura', function(val) cfg.kill = val end)
+    CombatTab:Toggle('PvP Arena', function(val) cfg.killPlayer = val end)
+    CombatTab:Slider('Range', 0, 10000, false, function(v) cfg.range = v end)
+    CombatTab:Slider('Delay', 1, 10, true, function(v) cfg.delay = v end)
 
-Lobbies:Button("World 3",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(20)
-end)
+    MiscTab:Toggle('Coin Magnet', function(v) cfg.coin = v end)
+    MiscTab:Toggle('Auto Chest', function(v) cfg.chest = v end)
+    MiscTab:Toggle('Auto Feed Pet', function(v) cfg.feedPet = v end)
+    MiscTab:Toggle('Remove Damage', function(v) cfg.damage = v end)
+    MiscTab:Toggle('Fast Upgrade', function(v) cfg.upgrade = v end)
+    MiscTab:Toggle('Skip Cutscenes', function(v) cfg.skip = v end)
 
-Lobbies:Button("World 4",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(29)
-end)
+    local Teleports = UI:CreateFolder('Teleports')
+    Teleports:Button('World 1', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(13) end) end)
+    Teleports:Button('World 2', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(19) end) end)
+    Teleports:Button('World 3', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(20) end) end)
+    Teleports:Button('World 4', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(29) end) end)
+    Teleports:Button('World 5', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(31) end) end)
+    Teleports:Button('World 6', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(36) end) end)
+    Teleports:Button('World 7', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(40) end) end)
+    Teleports:Button('PvP Arena', function() pcall(function() ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(39) end) end)
+end
 
-Lobbies:Button("World 5",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(31)
-end)
-
-Lobbies:Button("World 6",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(36)
-end)
-
-Lobbies:Button("World 7",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(40)
-end)
-
-Lobbies:Button("PvP Arena",function()
-    game.ReplicatedStorage.Shared.Teleport.TeleportToHub:FireServer(39)
-end)
-
-
--- GUIS --
--- Open Sell
+-- End of hub
 GUIS:Button("Open Sell",function()
     sell = require(game:GetService("ReplicatedStorage").Client.Gui.GuiScripts.Sell)
     sell:Open()
