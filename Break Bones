@@ -1,4 +1,4 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/NotMe2007/WZ/refs/heads/main/Break%20Bones"))()
+--loadstring(game:HttpGet("https://raw.githubusercontent.com/NotMe2007/WZ/refs/heads/main/Break%20Bones"))()
 
 -- Services
 local Players = game:GetService("Players")
