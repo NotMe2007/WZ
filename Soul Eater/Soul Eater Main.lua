@@ -1,4 +1,6 @@
-local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
+local Material = load(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
+local Color3 = Color3
+local Enum = Enum
 local X = Material.Load({
 Title = "Soul Eater",
 Style = 3,
@@ -69,7 +71,7 @@ local farmMonsters = function()
                             [3] = "\240\159\152\153\240\159\152\153\240\159\152\161\240\159\152\173\240\159\152\173\240\159\152\173\240\159\152\173\240\159\164\160",
                             [4] = "Down"
                         }
-                        game:GetService("ReplicatedStorage").Remotes.KeyEvent:FireServer(unpack(args))
+                        game:GetService("ReplicatedStorage").Remotes.KeyEvent:FireServer(table.unpack(args))
                         pressKey(Enum.KeyCode.Q)
                         pressKey(Enum.KeyCode.E)
                         pressKey(Enum.KeyCode.F)
@@ -110,7 +112,7 @@ local farmQuests = function()
                 [2] = workspace.NPCS.Quests[location].Detect
             }
 
-            game:GetService("ReplicatedStorage").Remotes.Quest:FireServer(unpack(args))
+            game:GetService("ReplicatedStorage").Remotes.Quest:FireServer(table.unpack(args))
         end
     end
 end
@@ -139,7 +141,7 @@ Enabled = false
 
 local monsterTypes = Page1.ChipSet({
 Callback = function(ChipSet)
-table.foreach(ChipSet, function(Option, Value)
+for Option, Value in pairs(ChipSet) do
 if Value then
 local ispresent = false
 for i,v in pairs(monsters) do
@@ -157,7 +159,7 @@ table.remove(monsters, i)
 end
 end
 end
-end)
+end
 end,
 Options = {
         Zombies = true,
