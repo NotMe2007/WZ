@@ -870,7 +870,8 @@ function Material.Load(Config)
 			TweenService:Create(MainShadow, TweenInfo.new(0.15), {ImageTransparency = 0}):Play()
 		else
 			MainFrame.ClipsDescendants = true
-		end)
+		end
+	end)
 
 	local Content = Objects.new("Round")
 	Content.Name = "Content"
@@ -1137,7 +1138,6 @@ function Material.Load(Config)
 			for _, Track in next, PageTrack do
 				Track.Visible = (Track == PageContentFrame)
 			end
-			end)
 
 		local PagePadding = Objects.new("UIPadding")
 		PagePadding.PaddingLeft = UDim.new(0,5)
@@ -1153,7 +1153,7 @@ function Material.Load(Config)
 
 		PageList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 			PageContentFrame.CanvasSize = UDim2.fromOffset(0,PageList.AbsoluteContentSize.Y+10)
-					end
+		end)
 
 		TabCount = TabCount + 1
 
@@ -1325,7 +1325,7 @@ function Material.Load(Config)
 						DropdownTitle.Text = DropdownText..": "..Value
                         DropdownValue = Value
 					end)
-				end)
+				end
 			end
 
 			function DropdownLibrary:GetOptions()
@@ -1348,7 +1348,7 @@ function Material.Load(Config)
 
 			for _, _ in pairs(ChipSetOptions) do
 				TotalOptions = TotalOptions + 1
-			end)
+			end
 
 			if TotalOptions > 0 then
 				local Size = UDim2.fromScale(1,0) + UDim2.fromOffset(0,(TotalOptions*30)+((TotalOptions+1)*5))
@@ -1447,8 +1447,8 @@ function Material.Load(Config)
 							TweenService:Create(ChipMenu, TweenInfo.new(0.15), {ImageColor3 = Enabled and Theme.ChipSetAccent or Theme.ChipSet}):Play()
 						end
 						ChipSetCallback(BuildTable)
-					end)
-				end
+						end)
+					end
 
 				local ChipSetLibrary = {}
 
